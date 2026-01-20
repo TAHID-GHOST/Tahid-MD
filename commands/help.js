@@ -1,6 +1,12 @@
+const settings = require('../settings');
+const fs = require('fs');
+const path = require('path');
+
+async function helpCommand(sock, chatId, message) {
+
 const helpMessage = `
 ╔══════════════════════╗
- 🤖 *${settings.botName || 'Tahid-MD'}*  
+ 🤖 *Tahid MD*  
  🧩 Version: *${settings.version || '3.0.0'}*
  👑 Owner: ${settings.botOwner || 'Minato'}
  ▶️ YT: ${global.ytch}
@@ -181,10 +187,10 @@ const helpMessage = `
 
     try {
         const imagePath = path.join(__dirname, '../assets/bot_image.jpg');
-        
+
         if (fs.existsSync(imagePath)) {
             const imageBuffer = fs.readFileSync(imagePath);
-            
+
             await sock.sendMessage(chatId, {
                 image: imageBuffer,
                 caption: helpMessage,
@@ -197,22 +203,25 @@ const helpMessage = `
                         serverMessageId: -1
                     }
                 }
-            },{ quoted: message });
+            }, { quoted: message });
+
         } else {
             console.error('Bot image not found at:', imagePath);
-            await sock.sendMessage(chatId, { 
+
+            await sock.sendMessage(chatId, {
                 text: helpMessage,
                 contextInfo: {
                     forwardingScore: 1,
                     isForwarded: true,
                     forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363161513685998@newsletter',
-                        newsletterName: 'KnightBot MD by Mr Unique Hacker',
+                        newsletterJid: '120363404917414335@newsletter',
+                        newsletterName: 'Tahid MD',
                         serverMessageId: -1
-                    } 
+                    }
                 }
             });
         }
+
     } catch (error) {
         console.error('Error in help command:', error);
         await sock.sendMessage(chatId, { text: helpMessage });

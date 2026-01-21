@@ -1,0 +1,124 @@
+// commands/clanwars.js
+const fs = require('fs');
+const path = require('path');
+
+const DATA_FILE = path.join(__dirname, '../data/clanwars.json');
+
+// Helper: read clan data
+function readClanData() {
+    if (!fs.existsSync(DATA_FILE)) return {};
+    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+}
+
+// Helper: save clan data
+function saveClanData(data) {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+}
+
+// Initialize some sample clans
+const defaultClans = {
+    'RedDragons': { members: [], points: 0 },
+    'BluePhoenix': { members: [], points: 0 },
+    'GreenWolves': { members: [], points: 0 }
+};
+
+async function clanWarsCommand(sock, chatId, senderId, args, message) {
+    let data = readClanData();
+
+    if (!data.clans) {
+        data.clans = defaultClans;
+    }
+
+    if (!args[0]) {
+        // Show clans and scores
+        let text = '⚔️ *Clan Wars Status*\n\n';
+        for (const clanName in data.clans) {
+            const clan = data.clans[clanName];
+            text += `🏰 ${clanName} - Points: ${clan.points}, Members: ${clan.members.length}\n`;
+        }
+        await sock.sendMessage(chatId, { text }, { quoted: message });
+        return;
+    }
+
+    const command = args[0].toLowerCase();
+
+    if (command === 'join') {
+        const clanName = args[1];
+        if (!clanName || !data.clans[clanName]) {
+            await sock.sendMessage(chatId, { text: '❌ Invalid clan! Use a valid clan name.' }, { quoted: message });
+            return;
+        }
+
+        // Remove from other clans first
+        for (const name in data.clans) {
+            const idx = data.clans[name].members.indexOf(senderId);
+            if (idx !== -1) data.clans[name].members.splice(idx, 1);
+        }
+
+        data.clans[clanName].members.push(senderId);
+        saveClanData(data);
+
+        await sock.sendMessage(chatId, { text: `✅ You joined clan *${clanName}*` }, { quoted: message });
+        return;
+    }
+
+    if (command === 'battle') {
+        const attackerClanName = args[1];
+        const defenderClanName = args[2];
+
+        if (!attackerClanName || !defenderClanName || !data.clans[attackerClanName] || !data.clans[defenderClanName]) {
+            await sock.sendMessage(chatId, { text: '❌ Invalid clans! Use `.clanwars battle RedDragons BluePhoenix`' }, { quoted: message });
+            return;
+        }
+
+        if (attackerClanName === defenderClanName) {
+            await sock.sendMessage(chatId, { text: '❌ A clan cannot battle itself!' }, { quoted: message });
+            return;
+        }
+
+        // Calculate battle points
+        const attackerPoints = data.clans[attackerClanName].members.length * (Math.floor(Math.random() * 50) + 50);
+        const defenderPoints = data.clans[defenderClanName].members.length * (Math.floor(Math.random() * 50) + 50);
+
+        let winner, loser;
+        if (attackerPoints > defenderPoints) {
+            winner = attackerClanName;
+            loser = defenderClanName;
+        } else if (defenderPoints > attackerPoints) {
+            winner = defenderClanName;
+            loser = attackerClanName;
+        } else {
+            winner = null; // draw
+        }
+
+        if (winner) {
+            data.clans[winner].points += 100;
+            await sock.sendMessage(chatId, {
+                text: `⚔️ *Battle Result*\n${attackerClanName} vs ${defenderClanName}\n\n` +
+                      `Winner: *${winner}*\nAttacker Points: ${attackerPoints}\nDefender Points: ${defenderPoints}`
+            }, { quoted: message });
+        } else {
+            await sock.sendMessage(chatId, {
+                text: `⚔️ *Battle Result*\n${attackerClanName} vs ${defenderClanName}\n\nDraw!\nBoth sides earned nothing.\nPoints: ${attackerPoints}`
+            }, { quoted: message });
+        }
+
+        saveClanData(data);
+        return;
+    }
+
+    if (command === 'leaderboard') {
+        // Show clan leaderboard
+        const sorted = Object.entries(data.clans).sort((a, b) => b[1].points - a[1].points);
+        let text = '🏆 *Clan Wars Leaderboard*\n\n';
+        sorted.forEach(([name, clan], i) => {
+            text += `${i + 1}. ${name} - ${clan.points} points\n`;
+        });
+        await sock.sendMessage(chatId, { text }, { quoted: message });
+        return;
+    }
+
+    await sock.sendMessage(chatId, { text: '❌ Invalid command. Use `.clanwars join <clan>`, `.clanwars battle <attacker> <defender>` or `.clanwars leaderboard`' }, { quoted: message });
+}
+
+module.exports = clanWarsCommand;
